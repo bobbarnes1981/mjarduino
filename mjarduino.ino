@@ -32,18 +32,22 @@ void setup() {
   }
 }
 
-void loop() {
-  digitalWrite(LED_PIN, HIGH);
+void loop() {  
   State currentState = mj.getState();
-  digitalWrite(LED_PIN, LOW);
 
-  // calculate tens and digits
-  byte adv = currentState.advanceDegrees;
-  byte advHi = adv / 10;
-  byte advLo = adv % 10;
+  if (currentState.received) {
+    digitalWrite(LED_PIN, LOW);
+    
+    // calculate tens and digits
+    byte adv = currentState.advanceDegrees;
+    byte advHi = adv / 10;
+    byte advLo = adv % 10;
 
-  // write advance digits to display
-  m.putByte(advHi);
-  m.putByte(advLo);  
+    // write advance digits to display
+    m.putByte(advHi);
+    m.putByte(advLo);
+  } else {
+    digitalWrite(LED_PIN, HIGH); 
+  }
 }
 
