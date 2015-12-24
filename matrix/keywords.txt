@@ -1,3 +1,0 @@
-Matrix      KEYWORD1
-putData     KEYWORD2
-putChipData KEYWORD2

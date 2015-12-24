@@ -3,18 +3,57 @@
 
 // constructor
 Megajolt::Megajolt(HardwareSerial * serial) {
-  _sent = false;
+  _request = req_none;
   _serial = serial;
+  _timeout = 1000;
+}
+
+// function to retreive the current firmware version from megajolt
+Version Megajolt::getVersion() {
+  // request has not been sent
+  if (_request == req_none) {
+    // send 'V' byte
+    _serial->write(Megajolt::char_getVersion);
+    // mark sent
+    _request = req_getVersion;
+    // record time
+    _sent_millis = millis();
+  }
+
+  // default state object  
+  Version currentVersion = { false, 0x00, 0x00, 0x00 };
+
+  // request has been sent
+  if (_request == req_getVersion) {
+    // all bytes available
+    if (_serial->available() >= 3) {
+      // set object as received
+      currentVersion.received = true;
+
+      // load all bytes
+      currentVersion.major = _serial->read();
+      currentVersion.minor = _serial->read();
+      currentVersion.bugfix = _serial->read();
+
+      // mark as not sent
+      _request = req_none;
+    } else if (millis() > _sent_millis + _timeout) {
+      // handle timeout
+    }
+  }
+
+  // return result
+  return currentVersion;
 }
 
 // function to retreive the current state from megajolt
 State Megajolt::getState() {
   // request has not been sent
-  if (!_sent) {
+  if (_request == req_none) {
     // send 'S' byte
-    _serial->write(Megajolt::req_getState);
+    _serial->write(Megajolt::char_getState);
     // mark sent
-    _sent = true;
+    _request = req_getState;
     // record time
     _sent_millis = millis();
   }
@@ -23,7 +62,7 @@ State Megajolt::getState() {
   State currentState = { false, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
   // request has been sent
-  if (_sent) {
+  if (_request == req_getState) {
     // all bytes available
     if (_serial->available() >= 9) {
       // set object as received
@@ -41,8 +80,8 @@ State Megajolt::getState() {
       currentState.advanceCorrectionDeg = _serial->read();
 
       // mark as not sent
-      _sent = false;
-    } else if (millis() > _sent_millis + 10000) {
+      _request = req_none;
+    } else if (millis() > _sent_millis + _timeout) {
       // handle timeout
     }
   }

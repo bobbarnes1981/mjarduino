@@ -1,6 +1,12 @@
 #ifndef megajolt_h
 #define megajolt_h
 
+enum request {
+  req_none,
+  req_getVersion,
+  req_getState
+};
+
 // struct to represent the 'state' response from megajolt
 struct State {
   // state has been received from megajolt
@@ -26,22 +32,39 @@ struct State {
   byte advanceCorrectionDeg;
 };
 
+// struct to represent the 'version' response from megajolt
+struct Version {
+  // version has been received from megajolt
+  bool received;
+  
+  // major version number
+  byte major;
+  // minor version number
+  byte minor;
+  // bugfix version number
+  byte bugfix;
+};
+
 class Megajolt {
   public:
     // constructor
     Megajolt(HardwareSerial * serial);
+    // function to retreive the current firmware version from megajolt
+    Version getVersion();
     // function to retreive the current state from megajolt
     State getState();
     // request bytes
-    static const char req_getState        = 0x53; // S
-    static const char req_getVersion      = 0x75; // u
+    static const char char_getState        = 0x53; // S
+    static const char char_getVersion      = 0x56; // V
   private:
+    // current request state
+    request _request;
     // millis when request was sent
     unsigned long _sent_millis;
-    // true if awaiting response, false if should send
-    bool _sent;
     // serial object
     HardwareSerial * _serial;
+    // timeout value
+    unsigned long _timeout;
 };
 
 #endif

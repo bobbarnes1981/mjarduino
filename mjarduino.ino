@@ -11,30 +11,38 @@
  * 3  - Max7219 CS
  * 4  - Max7219 CLK
  * 
- * 5  - Button : switch between degrees and load
- *      (could we show AUX valule as well?)
+ * 5  - Button : switch between degrees, load and aux
  * 
- * 10 - LED On degrees / Off load
  * 11 - LED Shift light state
  * 12 - LED Rev limit state
  * 13 - On Board LED
  * 
- * Could use decimal points as shf/rev/ind leds
+ * Could use decimal points as shf/rev leds
  * 
  */
 
-#include "megajolt/megajolt.h"
-#include "matrix/matrix.h"
+//#define DEBUG
+
+#include "mjarduino.h"
+
+#include "button.h"
+#include "matrix.h"
+#include "megajolt.h"
 
 // masks for state value
-const byte MASK_SHF = 0x10; // bit 5
-const byte MASK_REV = 0x08; // bit 4
+const byte MASK_OUT1 = 0x01; // bit 0
+const byte MASK_OUT2 = 0x02; // bit 1
+const byte MASK_OUT3 = 0x04; // bit 2
+const byte MASK_OUT4 = 0x08; // bit 3
+const byte MASK_REV =  0x10; // bit 4
+const byte MASK_SHF =  0x20; // bit 5
+const byte MASK_RES =  0x40; // bit 6
+const byte MASK_CFG =  0x80; // bit 7
 
 // led pins
 const int PIN_LED = 13;
 const int PIN_REV = 12;
 const int PIN_SHF = 11;
-const int PIN_IND = 10;
 
 // matrix pins
 const int PIN_MATRIX_DIN = 2;
@@ -44,24 +52,28 @@ const int PIN_MATRIX_CLK = 4;
 // button pin
 const int PIN_BTN = 5;
 
-// indicate degrees or load display
-bool showAdvanceDegrees = true;
+// indicate degrees, load display or aux
+displaystate state = state_degrees;
 
-Megajolt mj = Megajolt(&Serial);
+// last button state
+bool buttonState = false;
+
+// objects
+Button b = Button(PIN_BTN);
 Matrix m = Matrix(PIN_MATRIX_DIN, PIN_MATRIX_CS, PIN_MATRIX_CLK);
+Megajolt mj = Megajolt(&Serial);
+
+// megajolt firmware version
+Version v;
 
 void setup() {
   // serial init
   Serial.begin(38400, SERIAL_8N1);
 
   // set pins for LEDs
-  pinMode(PIN_IND, OUTPUT);
   pinMode(PIN_SHF, OUTPUT);
   pinMode(PIN_REV, OUTPUT);
   pinMode(PIN_LED, OUTPUT);
-
-  // set pin for button
-  pinMode(PIN_BTN, INPUT);
 
   // matrix init
   m.setScanLimit(0x01);     // display 2 digits
@@ -74,9 +86,22 @@ void setup() {
   for (int j = 1; j < 3; j++) {
     m.putData(j, 0x00);
   }
+
+  do {
+    // get the version
+    v = mj.getVersion();
+  } while(v.received == false);
+
+  #ifdef DEBUG
+  Serial.write("version:");
+  Serial.write(v.major);
+  Serial.write(v.minor);
+  Serial.write(v.bugfix);
+  #endif
 }
 
-void loop() {  
+void loop() {
+  // get the state
   State currentState = mj.getState();
 
   if (currentState.received) {
@@ -88,32 +113,71 @@ void loop() {
 
     // show rev limit state
     digitalWrite(PIN_REV, currentState.state & MASK_REV);
-    
-    if (showAdvanceDegrees) {
-      // show degrees
-      displayBCDByte(currentState.advanceDegrees);
-    } else {
-      // show load
-      displayBCDByte(currentState.load);
+
+    // show selected info on display
+    switch(state) {
+      case state_degrees:
+        displayBCDByte(currentState.advanceDegrees);
+        break;
+      case state_load:
+        displayBCDByte(currentState.load);
+        break;
+      case state_aux:
+        displayBCDByte(currentState.aux);
+        break;
     }
   } else {
     // on board led shows waiting to receive
     digitalWrite(PIN_LED, HIGH); 
   }
-
-  // indicate degrees or load
-  digitalWrite(PIN_IND, showAdvanceDegrees);
-  
-  // todo: check button (with debounce)
+      
+  // if button state has changed
+  if (buttonState != b.getState()) {
+    // update current state
+    buttonState = !buttonState;
+    // if button was pressed
+    if (buttonState) {
+      // cycle display state
+      switch(state) {
+        case state_degrees:
+          state = state_load;
+          break;
+        case state_load:
+          state = state_aux;
+          break;
+        case state_aux:
+          state = state_degrees;
+          break;
+      }
+    
+      #ifdef DEBUG
+      Serial.write("state:");
+      Serial.write(state);
+      #endif
+    }
+  }
 }
 
 void displayBCDByte(byte b) {
-  // calculate tens and digits
-  byte hi = b / 10;
-  byte lo = b % 10;
+  // calculate hundreds
+  byte h = b / 100;
+  
+  // calculate tens
+  byte t = (b - (h * 100)) / 10;
 
+  // calculate units
+  byte u = b - (h * 100) - (t * 10);
+  
   // write digits to display
-  m.putChipData(0, 1, hi);
-  m.putChipData(0, 2, lo);
+  //m.putChipData(0, 3, h);
+  m.putChipData(0, 2, t);
+  m.putChipData(0, 1, u);
+
+  #ifdef DEBUG
+  Serial.write("BCD:");
+  Serial.write(h+48);
+  Serial.write(t+48);
+  Serial.write(u+48);
+  #endif
 }
 
