@@ -80,7 +80,7 @@ void setup() {
   m.setDecodeMode(0xFF);    // BCD mode for all digits
   m.setShutdownMode(0x01);  // normal operation
   m.setTestMode(0x00);      // normal operation
-  m.setIntensity(0x03);     // full brightness 0x0f
+  m.setIntensity(0x01);     // full brightness 0x0f
 
   // clear matrix
   for (int j = 1; j < 3; j++) {
@@ -169,9 +169,9 @@ void displayBCDByte(byte b) {
   byte u = b - (h * 100) - (t * 10);
   
   // write digits to display
-  //m.putChipData(0, 3, h);
-  m.putChipData(0, 2, t);
-  m.putChipData(0, 1, u);
+  //m.putChipData(0, , h);
+  m.putChipData(0, 1, t);
+  m.putChipData(0, 2, u);
 
   #ifdef DEBUG
   Serial.write("BCD:");
