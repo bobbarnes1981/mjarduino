@@ -1,4 +1,4 @@
-#mjarduino
+# mjarduino #
 
 Arduino code to read status from Megajolt and display to two digit seven segment display
 
